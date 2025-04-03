@@ -44,31 +44,21 @@ jobs:
           git config user.email "actions@github.com"
 
       - name: Bump the tag version
-        id: create_branch
-        # --no-git-tag-version ensures we control when tags are pushed
-        #  git fetch origin main
-        #  git checkout -b release/bump-tag-version origin/main
+        id: bump_npm_version
         run: |
           npm version ${{ github.event.inputs.release_type }} -m "chore(release): bump tag version to %s"
-        # --follow-tags is not used when pushing the branch in the next step since we're using --no-git-tag-version here
-
-      # - name: Commit version bump
-      #   run: |
-      #     git add package.json
-      #     git commit -m "chore(release): bump tag version to $(jq -r .version package.json)" || echo "No changes to commit"
-      #     git push origin release/bump-tag-version
-
-      # Duplicate
-      # - name: Configure Git credentials
-      #   run: |
-      #     git config --global url."https://github.com/".insteadOf "git@github.com:"
-      #     git config --global credential.helper store
 
       # - name: Debug Git state
       #   run: |
       #     git remote -v
       #     git branch
       #     git config --list
+
+      - name: Extract the new version from package.json
+        id: capture_version
+        run: |
+          VERSION=$(jq -r .version package.json)
+          echo "new_version=${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Generate changelog
         continue-on-error: true
@@ -80,11 +70,11 @@ jobs:
           GITHUB_TOKEN:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: "release/bump-tag-version"
-          #branch-suffix: "short-commit-hash"
+          branch: "release/bump-tag-version-and-update-changelog"
+          branch-suffix: "short-commit-hash"
           base: "main"
           title: "chore(release): Bump tag version and update changelog"
           commit-message: "chore(release): Bump tag version and update changelog"
           body: |
-            This pull request bumps the tag version to $(jq -r .version package.json) and updates changelog as part of the release process.
+            This pull request bumps the tag version to ${{ steps.capture_version.outputs.new_version }} and updates changelog as part of the release process.
             Please review and merge.
